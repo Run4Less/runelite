@@ -120,7 +120,7 @@ public class AiTyper {
             return true;
         }
         long between = ChronoUnit.SECONDS.between(lastSendMessage, LocalDateTime.now());
-        if (between >= getRandomNumber(5, 10)) {
+        if (between >= getRandomNumber(10, 12)) {
             return true;
         }
         return false;
