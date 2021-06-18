@@ -7,15 +7,19 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 public class AiTyper {
 
     @Inject
     ChatUtils chatUtils;
 
-    private static List<Action> actionList;
+    private ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
 
-    private static LocalDateTime lastActionTime;
+    private List<Action> actionList;
+
+    private LocalDateTime lastActionTime;
 
     public synchronized void gameTick() throws AWTException {
         if (lastActionTime != null) {
@@ -23,7 +27,54 @@ public class AiTyper {
                 return;
             }
         }
-        chatUtils.sendPublicChatMessage(getRandomMessage());
+
+        if (executor.getQueue().size() > 0 || executor.getActiveCount() > 0) {
+            System.out.println("queue size greatrer than 0");
+            return;
+        }
+        System.out.println("made it here");
+        // get random message
+        String randomMessage = getRandomMessage();
+
+        // should make any mistake in message
+        // 75% chance of making a mistake
+        if (getRandomNumber(1, 4) >= 3) {
+            // make mistake
+            System.out.println("Time to make mistake");
+            setAction(createActionList(makeMistake(randomMessage)));
+        } else {
+            setAction(createActionList(randomMessage));
+        }
+
+        executor.execute(() -> {
+            System.out.println("starting typing");
+            while (!actionList.isEmpty()) {
+                Action nextAction = getNextAction();
+                if (nextAction.getaChar() == '|') {
+                    chatUtils.robotTypeDelete(nextAction.getDelayOnPress());
+                    try {
+                        Thread.sleep(nextAction.getDelayAfterPress());
+                    } catch (InterruptedException e) {
+                        System.out.println("error");
+                    }
+                    continue;
+                }
+                chatUtils.robotType(nextAction.getaChar(), nextAction.getDelayOnPress());
+                try {
+                    Thread.sleep(nextAction.getDelayAfterPress());
+                } catch (InterruptedException e) {
+                    System.out.println("error");
+                }
+            }
+            if (getRandomNumber(0, 10) >= 8) {
+                try {
+                    Thread.sleep(getRandomNumber(2000, 5000));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+            chatUtils.robotTypeEnter(getRandomNumber(10, 50));
+        });
         setLastActionTime();
     }
 
@@ -31,8 +82,26 @@ public class AiTyper {
         lastActionTime = LocalDateTime.now();
     }
 
-    public synchronized void setActionToNull() {
-        actionList = null;
+    private List<Action> createActionList(String message) {
+        List<Action> actions = new ArrayList<>();
+        for (char c : message.toCharArray()) {
+            actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 75), c));
+            int randomNumber = getRandomNumber(0, 100);
+            System.out.println("Number for adding char " + randomNumber);
+            if (randomNumber >= 97) {
+                System.out.println("Adding extra chars!!!!!!!!!!!");
+                if (getRandomNumber(0, 2) >= 1) {
+                    actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 2000), getRandomChar()));
+                    actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 2000), getRandomChar()));
+                    actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 2000), '|'));
+                    actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 2000), '|'));
+                } else {
+                    actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 2000), getRandomChar()));
+                    actions.add(new Action(getRandomNumber(3, 75), getRandomNumber(1, 2000), '|'));
+                }
+            }
+        }
+        return actions;
     }
 
     private synchronized Action getNextAction() {
@@ -44,21 +113,8 @@ public class AiTyper {
         return action;
     }
 
-    private synchronized boolean setAction() {
-        if (actionList == null || actionList.isEmpty()) {
-            actionList = createActionList(makeMistake(getRandomMessage()));
-            System.out.println(actionList.size());
-            return true;
-        }
-        return false;
-    }
-
-    private List<Action> createActionList(String message) {
-        List<Action> actions = new ArrayList<>();
-        for (char c : message.toCharArray()) {
-            actions.add(new Action(getRandomNumber(3, 50), getRandomNumber(1, 50), c));
-        }
-        return actions;
+    private synchronized void setAction(List<Action> actionListInternal) {
+        actionList = actionListInternal;
     }
 
     private String getRandomMessage() {
@@ -68,12 +124,15 @@ public class AiTyper {
 
     private List<String> getAllMessages() {
         List<String> messageList = new ArrayList<>();
-        messageList.add("Do you like Bananas, Join cc Bananas");
-        messageList.add("Need a Banana, Join cc Banana");
-        messageList.add("Bananas are the number 1 fruit in the game");
-        messageList.add("Become a Banana today, Join cc Bananas");
-        messageList.add("Banana cc for Bananas");
-        messageList.add("Bananas are life");
+        messageList.add("Hire a Bone Runner today, Join cc [Run4Less]");
+        messageList.add("Run4Less is the best Bone Running Clan");
+        messageList.add("Become a Bone Runner today, Join cc [Run4Less]");
+        messageList.add("Run4Less is the Cheapest Bone Running Clan");
+//        messageList.add("Do you like Bananas, Join cc Bananas");
+//        messageList.add("Need a Banana, Join cc Bananas");
+//        messageList.add("Become a Banana today, Join cc Bananas");
+//        messageList.add("Banana cc for Bananas");
+//        messageList.add("Bananas are life");
         return messageList;
     }
 
@@ -82,12 +141,12 @@ public class AiTyper {
         return random.nextInt(max - min + 1) + min;
     }
 
-    // todo refactor this
+    // todo refactor thisr
     private String makeMistake(String message) {
         String[] splitString = message.split(" ");
         StringBuilder sb = new StringBuilder();
         for (String s : splitString) {
-            if (s.contains("Run4less")) {
+            if (s.contains("[Run4Less]") || s.contains("Run4Less")) {
                 sb.append(s);
                 sb.append(" ");
                 continue;
@@ -112,58 +171,19 @@ public class AiTyper {
     }
 
     private boolean shouldMakeMistake() {
-        return getRandomNumber(0, 1000) > 950;
+        return getRandomNumber(0, 100) >= 95;
     }
 
     public synchronized boolean canPerformNextAction(LocalDateTime lastSendMessage) {
         if (lastSendMessage == null) {
             return true;
         }
+
         long between = ChronoUnit.SECONDS.between(lastSendMessage, LocalDateTime.now());
-        if (between >= getRandomNumber(10, 12)) {
+        if (between >= getRandomNumber(10, 25)) {
             return true;
         }
         return false;
+
     }
-
-        /*
-
-         if (setAction()) {
-            System.out.println("Starting new thread");
-            threadPoolExecutor.execute(new Thread() {
-                public void run() {
-                    while (true) {
-                        Action action = getNextAction();
-                        if (action == null) {
-                            ChatUtils.robotTypeEnter(getRandomNumber(3, 15));
-                            try {
-                                Thread.sleep(1000);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            setLastActionTime();
-                            setActionToNull();
-                            return;
-                        }
-                        if (getRandomNumber(0, 1000) > 950) {
-                            try {
-                                Thread.sleep(getRandomNumber(0, 3) * 1000);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                        ChatUtils.robotType(action.getaChar(), action.getDelayAfterPress());
-                        try {
-                            Thread.sleep(action.getDelayAfterPress());
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            });
-        }
-    }
-         */
-
-
 }

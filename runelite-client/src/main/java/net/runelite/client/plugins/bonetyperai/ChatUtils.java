@@ -26,7 +26,7 @@ public class ChatUtils {
         }
     }
 
-    public static void robotType(char c, int delay) {
+    public void robotType(char c, int delay) {
         int code = KeyEvent.getExtendedKeyCodeForChar(c);
         if (Character.isUpperCase(c))
             robot.keyPress(KeyEvent.VK_SHIFT);
@@ -35,6 +35,18 @@ public class ChatUtils {
         robot.keyRelease(code);
         if (Character.isUpperCase(c))
             robot.keyRelease(KeyEvent.VK_SHIFT);
+    }
+
+    public void robotTypeEnter(int delay) {
+        robot.keyPress(KeyEvent.VK_ENTER);
+        robot.delay(delay);
+        robot.keyRelease(KeyEvent.VK_ENTER);
+    }
+
+    public void robotTypeDelete(int delay) {
+        robot.keyPress(KeyEvent.VK_BACK_SPACE);
+        robot.delay(delay);
+        robot.keyRelease(KeyEvent.VK_BACK_SPACE);
     }
 
     public void sendPublicChatMessage(String message) throws AWTException {

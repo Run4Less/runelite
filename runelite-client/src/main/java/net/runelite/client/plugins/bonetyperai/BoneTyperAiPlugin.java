@@ -56,7 +56,6 @@ public class BoneTyperAiPlugin extends Plugin {
     protected void shutDown() throws Exception {
         overlayManager.remove(overlay);
         x = 0;
-        aiTyper.setActionToNull();
     }
 
 
@@ -71,6 +70,7 @@ public class BoneTyperAiPlugin extends Plugin {
                     e.printStackTrace();
                 }
             } else {
+                System.out.println(x);
                 x++;
             }
         }
